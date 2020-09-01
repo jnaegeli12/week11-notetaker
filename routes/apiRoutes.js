@@ -1,10 +1,20 @@
 const fs = require('fs');
 const notes = require('../db/db.json');
 const router = require('express').Router();
+const util = require('util');
+
+const readFileAsync = util.promisify(fs.readFile);
+const writeFileAsync = util.promisify(fs.writeFile);
 
 // reads notes from the db.json file and posts them on the page.
 router.get('/notes', function (req, res) {
-    res.json(notes);
+    readFileAsync("./db/db.json", "utf-8")
+        .then(data => {
+            res.json(JSON.parse(data));
+        })
+        .catch(err => {
+            throw err;
+        })
 });
 
 // posts a new note on the page as well as the db.json file.
@@ -14,16 +24,15 @@ router.post('/notes', function (req, res) {
 
     newNote.id = req.body.title;
 
-    fs.readFile('db/db.json', 'utf8', (err, data) => {
-        if (err) throw err;
-
-        let allData = JSON.parse(data);
-        allData.push(newNote);
-
-        fs.writeFile('db/db.json', JSON.stringify(allData), err => {
-            if (err) throw err;
+    readFileAsync('db/db.json', 'utf8')
+        .then(function(data) {
+            let allData = JSON.parse(data);
+            allData.push(newNote);
+            
+            writeFileAsync('db/db.json', JSON.stringify(allData)); 
+        }).catch(err => {
+            throw err;
         })
-    });
 
     res.json(newNote);
 });
@@ -32,33 +41,25 @@ router.post('/notes', function (req, res) {
 router.delete('/notes/:id', (req, res) => {
     const findId = req.params.id;
     
-    fs.readFile('db/db.json', 'utf8', (err, data) => {
-        if (err) throw err;
-
-        const allIds = JSON.parse(data);
-        console.log("Before: " + allIds);
-        
-        for (let i = 0; i < allIds.length; i++) {
-            let thisId = allIds[i].id;
-            console.log("This: " + thisId);
+    readFileAsync('db/db.json', 'utf8')
+        .then(function(data) {
+            const allIds = JSON.parse(data);
             
-            if (thisId === findId) {
-                allIds.splice(i, 1);
-                console.log(i);
-                break;
+            for (let i = 0; i < allIds.length; i++) {
+                let thisId = allIds[i].id;
+                
+                if (thisId === findId) {
+                    allIds.splice(i, 1);
+                    break;
+                }
             }
-        }
+            
+            writeFileAsync('db/db.json', JSON.stringify(allIds));
+            res.json(allIds);
 
-        console.log("After: " + allIds);
-        
-        fs.writeFile('db/db.json', JSON.stringify(allIds), err => {
-            if (err) throw err;
-        });
-
-        res.json(allIds);
-
-    });
-
+        }).catch(err => {
+            throw err;
+        })
 });
 
 module.exports = router;
